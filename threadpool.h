@@ -11,7 +11,7 @@ template<typename T>
 class ThreadPool {
 public:
     // thread_number是线程池中线程的数量，max_requests是请求队列中最多允许的、等待处理的请求的数量
-    ThreadPool(int thread_number = 10,int max_requests = 10000);
+    explicit ThreadPool(int thread_number = 10,int max_requests = 10000);
 
     bool append(T* request);
 
@@ -94,7 +94,7 @@ bool ThreadPool<T>::append(T *request) {
 
 template< typename T >
 void *ThreadPool<T>::worker(void *arg) {
-    ThreadPool * pool = (ThreadPool *)arg;
+    auto * pool = (ThreadPool *)arg;
     pool->run();
     return pool;
 }
@@ -107,7 +107,7 @@ void ThreadPool<T>::run() {
         T* request = m_work_que.front(); // 取出第一个
         m_work_que.pop_front();
         m_que_locker.unlock();
-        request->process;
+        request->process();
     }
 }
 

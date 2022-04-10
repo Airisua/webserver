@@ -33,7 +33,7 @@ public:
      pthread_mutex_destroy(&m_mutex);
     }
 private:
-    pthread_mutex_t m_mutex;
+    pthread_mutex_t m_mutex{};
 };
 
 // 条件变量类
@@ -52,7 +52,7 @@ public:
     }
 
     // 等待多长时间，调用了这个函数，线程会阻塞，直到指定的时间结束
-    bool timewait(pthread_mutex_t *m_mutex,const struct timespec t) {
+    bool timeWait(pthread_mutex_t *m_mutex,const struct timespec t) {
         int ret = 0;
         ret = pthread_cond_timedwait(&m_cond,m_mutex,&t);
         return ret == 0;
@@ -72,7 +72,7 @@ public:
         pthread_cond_destroy(&m_cond);
     }
 private:
-    pthread_cond_t m_cond;
+    pthread_cond_t m_cond{};
 };
 
 // 信号量类
@@ -98,7 +98,7 @@ public:
         sem_destroy(&m_sem);
     }
 private:
-sem_t m_sem;
+sem_t m_sem{};
 };
 
 #endif //WEBSERVER_LOCKER_H
