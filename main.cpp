@@ -9,9 +9,9 @@
 #include <unistd.h>
 #include <csignal>
 #include <cerrno>
-#include "locker.h"
+#include "locker/locker.h"
 #include "threadpool.h"
-#include "http_conn.h"
+#include "http/http_conn.h"
 
 #define MAX_FD 65535 // 最大文件描述符个数
 #define MAX_EVENT_NUMBER 10000 // 监听的最大事件数
@@ -31,12 +31,13 @@ extern void add_fd(int epoll_fd,int fd,bool one_shot);
 extern void remove_fd(int epoll_fd,int fd);
 // 修改文件描述符
 extern void mod_fd(int epoll_fd,int fd,int ev);
+extern void mod_fd(int epoll_fd,int fd,int ev);
 
 int main(int argc,char* argv[]) {
 
     if(argc <= 1) {
         printf("usage: %s port_number\n",basename(argv[0]));
-        return 1;
+        return -1;
     }
 
     // 获取端口号
@@ -50,7 +51,7 @@ int main(int argc,char* argv[]) {
         try{
             pool = new ThreadPool<http_conn>;
         } catch (...) {
-            return 1;
+            return -1;
         }
 
      // 创建一个数组 用于保存所有的客户端信息
