@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <cerrno>
+#include <cstring>
 
 class http_conn {
 public:
@@ -69,6 +70,12 @@ private:
     int m_start_line; // 当前正在解析的行的位置
 
     CHECK_STATE m_check_state; // 主状态机当前的状态
+    METHOD m_method; // 请求方法
+
+    bool m_linger;  // http请求是否要求保存连接
+    char* m_url; // 用户请求的文件名
+    char* m_version; // http协议版本 这里目前仅支持 http1.1
+    char* m_host; // 主机名
 
     void init(); // 初始化连接其余的信息
     HTTP_CODE process_read();    // 解析HTTP请求
