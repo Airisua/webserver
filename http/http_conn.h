@@ -3,11 +3,16 @@
 
 #include <cstdio>
 #include <sys/epoll.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/mman.h>
+#include <sys/uio.h>
 #include <fcntl.h>
+#include <cstdarg>
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 
 class http_conn {
 public:
@@ -40,7 +45,7 @@ public:
     enum LINE_STATUS { LINE_OK = 0, LINE_BAD, LINE_OPEN };
 
 public:
-    http_conn() {}
+    http_conn(){}
     ~http_conn(){}
 
 public:
@@ -58,6 +63,7 @@ public:
 public:
     static const int READ_BUFFER_SIZE = 2048;  // 读缓冲区大小
     static const int WRITE_BUFFER_SIZE = 2048; // 写缓冲区大小
+    static const int FILENAME_LEN = 200; // 文件名的最大长度
 
 private:
     int m_sock_fd; // 该HTTP连接的socket和对方的socket地址
@@ -72,21 +78,46 @@ private:
     CHECK_STATE m_check_state; // 主状态机当前的状态
     METHOD m_method; // 请求方法
 
+    char m_real_file[ FILENAME_LEN ];  // 客户请求的目标文件的完整路径，其内容等于 doc_root + m_url, doc_root是网站根目录
     bool m_linger;  // http请求是否要求保存连接
     char* m_url; // 用户请求的文件名
     char* m_version; // http协议版本 这里目前仅支持 http1.1
     char* m_host; // 主机名
+    int m_content_length;   // HTTP请求的消息总长度
+
+    char* m_file_address; // 客户请求的目标文件被mmap到内存中的起始位置
+    struct stat m_file_stat; // 目标文件的状态。通过它我们可以判断文件是否存在、是否为目录、是否可读，并获取文件大小等信息
+
+    char m_write_buf[WRITE_BUFFER_SIZE]; // 写缓冲区
+    int m_write_idx;  // 写缓冲区中待发送的字节数
+    struct iovec m_iv[2]; // 我们将采用writev来执行写操作，所以定义下面两个成员，其中m_iv_count表示被写内存块的数量。
+    int m_iv_count;
+
+    int bytes_to_send; // 将要发送的数据的字节数
+    int bytes_have_send; // 已经发送的字节数
+
 
     void init(); // 初始化连接其余的信息
     HTTP_CODE process_read();    // 解析HTTP请求
+    bool process_write( HTTP_CODE ret );    // 填充HTTP应答
+    // 下面函数被process_read调用以分析HTTP请求
     HTTP_CODE parse_request_line(char* text); // 解析请求行
     HTTP_CODE parse_request_headers(char* text); // 解析请求头
-    HTTP_CODE parse_request_content(char* text); // 解析请求体
-
+    HTTP_CODE parse_request_content(char* text) const; // 解析请求体
     LINE_STATUS parse_line(); // 解析行
     char* get_line(){return m_read_buf + m_start_line;} // 获取一行数据
     HTTP_CODE do_request(); // 具体请求处理
 
+    // 下面函数被process_write调用以填充HTTP应答。
+    void unmap();
+    bool add_response( const char* format, ... );
+    bool add_content( const char* content );
+    bool add_content_type();
+    bool add_status_line( int status, const char* title );
+    bool add_headers( int content_length );
+    bool add_content_length( int content_length );
+    bool add_linger();
+    bool add_blank_line();
 };
 
 #endif //WORKSPACE_HTTP_CONN_H

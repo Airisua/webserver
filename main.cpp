@@ -30,8 +30,8 @@ extern void add_fd(int epoll_fd,int fd,bool one_shot);
 // 从epoll中移除文件描述符
 extern void remove_fd(int epoll_fd,int fd);
 // 修改文件描述符
-extern void mod_fd(int epoll_fd,int fd,int ev);
-extern void mod_fd(int epoll_fd,int fd,int ev);
+//extern void mod_fd(int epoll_fd,int fd,int ev);
+//extern void mod_fd(int epoll_fd,int fd,int ev);
 
 int main(int argc,char* argv[]) {
 

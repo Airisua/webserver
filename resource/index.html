@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            /* 渐变 */
+            background: linear-gradient(
+                    to left,
+                    rgb(238,92,92),
+                    rgb(154,127,250)
+            );
+        }
+        *{
+            margin: 0;
+            padding: 0;
+        }
+        .a {
+            position: relative;
+            width: 400px;
+            height: 250px;
+            top: 150px;
+        }
+        .b{
+            position: absolute;
+            width: 400px;
+            height: 250px;
+            border-radius: 20px;
+            /* 渐变 */
+            background: linear-gradient(
+                    to right bottom,
+                    rgba(255,255,255,.5),
+                    rgba(255,255,255,.3),
+                    rgba(255,255,255,.2)
+            );
+            /* 使背景模糊 */
+            backdrop-filter: blur(11px);
+            /* 设置上高光和左高光 */
+            border-top: 1px solid rgba(255,255,255,.8);
+            border-left: 1px solid rgba(255,255,255,.8);
+        }
+        .a span {
+            /* 设置文字大小和粗细 */
+            font: 900 50px '';
+            position: absolute;
+            top: 10px;
+            left: 20px;
+            color: rgba(0, 0, 0, .5);
+            /* 设置文字阴影 */
+            text-shadow: 1px 1px 3px rgba(255,255,255,.7);
+        }
+        .a p {
+            font: 900 25px '';
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: rgba(255,255,255,.3);
+            /* 设置字体间距 */
+            letter-spacing: 3px;
+        }
+        .c {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background-color: rgb(240,160,0);
+            position: absolute;
+            top: 160px;
+            left: -40px;
+            z-index: -99;
+        }
+        .d {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background-color: #77fdd7;
+            position: absolute;
+            top: -80px;
+            left: 260px;
+            z-index: -99;
+        }
+    </style>
+</head>
+<body>
+<div class="a">
+    <div class="b">
+        <span>WANG</span>
+        <p>2021/wangyujin</p>
+    </div>
+    <div class="c"></div>
+    <div class="d"></div>
+</div>
+</body>
+</html>
