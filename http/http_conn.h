@@ -17,7 +17,16 @@
 class http_conn {
 public:
     // HTTP请求方法，这里只支持GET
-    enum METHOD {GET = 0, POST, HEAD, PUT, DELETE, TRACE, OPTIONS, CONNECT};
+    enum METHOD {
+        GET = 0,
+        POST,
+        HEAD,
+        PUT,
+        DELETE,
+        TRACE,
+        OPTIONS,
+        CONNECT
+    };
 
     /*
         解析客户端请求时，主状态机的状态
@@ -25,7 +34,11 @@ public:
         CHECK_STATE_HEADER:当前正在分析头部字段
         CHECK_STATE_CONTENT:当前正在解析请求体
     */
-    enum CHECK_STATE { CHECK_STATE_REQUEST_LINE = 0, CHECK_STATE_HEADER, CHECK_STATE_CONTENT };
+    enum CHECK_STATE {
+        CHECK_STATE_REQUEST_LINE = 0,
+        CHECK_STATE_HEADER,
+        CHECK_STATE_CONTENT
+    };
 
     /*
         服务器处理HTTP请求的可能结果，报文解析的结果
@@ -38,11 +51,24 @@ public:
         INTERNAL_ERROR      :   表示服务器内部错误
         CLOSED_CONNECTION   :   表示客户端已经关闭连接了
     */
-    enum HTTP_CODE { NO_REQUEST, GET_REQUEST, BAD_REQUEST, NO_RESOURCE, FORBIDDEN_REQUEST, FILE_REQUEST, INTERNAL_ERROR, CLOSED_CONNECTION };
+    enum HTTP_CODE {
+        NO_REQUEST,
+        GET_REQUEST,
+        BAD_REQUEST,
+        NO_RESOURCE,
+        FORBIDDEN_REQUEST,
+        FILE_REQUEST,
+        INTERNAL_ERROR,
+        CLOSED_CONNECTION
+    };
 
     // 从状态机的三种可能状态，即行的读取状态，分别表示
     // 1.读取到一个完整的行 2.行出错 3.行数据尚且不完整
-    enum LINE_STATUS { LINE_OK = 0, LINE_BAD, LINE_OPEN };
+    enum LINE_STATUS {
+        LINE_OK = 0,
+        LINE_BAD,
+        LINE_OPEN
+    };
 
 public:
     http_conn(){}
@@ -93,8 +119,8 @@ private:
     struct iovec m_iv[2]; // 我们将采用writev来执行写操作，所以定义下面两个成员，其中m_iv_count表示被写内存块的数量。
     int m_iv_count;
 
-    int bytes_to_send; // 将要发送的数据的字节数
-    int bytes_have_send; // 已经发送的字节数
+    ssize_t bytes_to_send; // 将要发送的数据的字节数
+    ssize_t bytes_have_send; // 已经发送的字节数
 
 
     void init(); // 初始化连接其余的信息
@@ -105,7 +131,7 @@ private:
     HTTP_CODE parse_request_headers(char* text); // 解析请求头
     HTTP_CODE parse_request_content(char* text) const; // 解析请求体
     LINE_STATUS parse_line(); // 解析行
-    char* get_line(){return m_read_buf + m_start_line;} // 获取一行数据
+    char* get_line(); // 获取一行数据
     HTTP_CODE do_request(); // 具体请求处理
 
     // 下面函数被process_write调用以填充HTTP应答。
@@ -114,8 +140,8 @@ private:
     bool add_content( const char* content );
     bool add_content_type();
     bool add_status_line( int status, const char* title );
-    bool add_headers( int content_length );
-    bool add_content_length( int content_length );
+    bool add_headers( size_t content_length );
+    bool add_content_length( size_t content_length );
     bool add_linger();
     bool add_blank_line();
 };

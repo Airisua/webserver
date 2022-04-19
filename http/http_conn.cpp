@@ -16,7 +16,8 @@ int http_conn::m_user_count = 0;  // 所有的客户数
 
 // 网站跟目录
 //const char* doc_root = "/home/wlic/workspace/webserver/resource";
-  const char* doc_root = "/wyj/workspace/webserver/resource";
+//  const char* doc_root = "/wyj/workspace/webserver/resource";
+  const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
 
 // 设置文件描述符非阻塞
 void set_nonblocking(int fd) {
@@ -26,6 +27,7 @@ void set_nonblocking(int fd) {
 }
 
 // 向epoll中添加需要监听的文件描述符
+// LT模式
 void add_fd(int epoll_fd,int fd,bool one_shot){
     epoll_event event{};
     event.data.fd = fd;
@@ -85,9 +87,9 @@ void http_conn::init() {
     bytes_to_send = 0;
 
 
-    bzero(m_read_buf,READ_BUFFER_SIZE);
-    bzero(m_write_buf, READ_BUFFER_SIZE);
-    bzero(m_real_file,FILENAME_LEN);
+    memset(m_read_buf, '\0', READ_BUFFER_SIZE);
+    memset(m_write_buf, '\0', WRITE_BUFFER_SIZE);
+    memset(m_real_file, '\0', FILENAME_LEN);
 }
 
 // 关闭连接
@@ -104,7 +106,7 @@ bool http_conn::read() {
     if(m_read_idx >= READ_BUFFER_SIZE) return false;
 
     // 读取到的字节
-    int bytes_read = 0;
+    ssize_t bytes_read = 0;
    while(true) {
        // 从m_read_buf + m_read_idx索引处开始保存数据，大小是READ_BUFFER_SIZE - m_read_idx
        bytes_read = recv(m_sock_fd,m_read_buf + m_read_idx,READ_BUFFER_SIZE - m_read_idx,0);
@@ -123,6 +125,11 @@ bool http_conn::read() {
     printf("读取到数据: %s\n",m_read_buf);
     return true;
 }
+
+// m_start_line是行在buffer中的起始位置，将该位置后面的数据赋给text
+// 此时从状态机已提前将一行的末尾字符\r\n变为\0\0，所以text可以直接取出完整的行进行解析
+char* http_conn::get_line(){return m_read_buf + m_start_line;} // 获取一行数据
+
 
 // 主状态机
 http_conn::HTTP_CODE http_conn::process_read() { // 解析HTTP请求
@@ -297,8 +304,9 @@ http_conn::LINE_STATUS http_conn::parse_line(){
 // 映射到内存地址m_file_address处，并告诉调用者获取文件成功
 http_conn::HTTP_CODE http_conn::do_request() {
     // "/home/wlic/workspace/webserver/resource"
+    // 将初始化的m_real_file赋值为网站根目录
     strcpy( m_real_file, doc_root );
-    int len = strlen( doc_root );
+    int len = strlen(doc_root);
     strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
     // 获取m_real_file文件的相关的状态信息，-1失败，0成功
     if ( stat( m_real_file, &m_file_stat ) < 0 ) {
@@ -319,7 +327,9 @@ http_conn::HTTP_CODE http_conn::do_request() {
     int fd = open( m_real_file, O_RDONLY );
     // 创建内存映射
     m_file_address = ( char* )mmap( nullptr, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
+    // 避免文件描述符的浪费和占用
     close( fd );
+    // 表示请求文件存在，且可以访问
     return FILE_REQUEST;
 }
 
@@ -392,6 +402,7 @@ bool http_conn::write() {
              mod_fd(m_epoll_fd,m_sock_fd,EPOLLIN);
 
              if(m_linger) {
+                 // 重新初始化http对象
                  init();
                  return true;
              } else {
@@ -422,7 +433,7 @@ bool http_conn::add_status_line( int status, const char* title ) {
     return add_response( "%s %d %s\r\n", "HTTP/1.1", status, title );
 }
 
-bool http_conn::add_headers(int content_len) {
+bool http_conn::add_headers(size_t content_len) {
     add_content_length(content_len);
     add_content_type();
     add_linger();
@@ -441,13 +452,15 @@ bool http_conn::add_blank_line()
     return add_response( "%s", "\r\n" );
 }
 
-bool http_conn::add_content_length(int content_len) {
+bool http_conn::add_content_length(size_t content_len) {
     return add_response( "Content-Length: %d\r\n", content_len );
 }
 
 bool http_conn::add_content_type() {
     // 这里目前只写了html 一种类型
-    return add_response("Content-Type:%s\r\n", "text/html");
+     return add_response("Content-Type:%s\r\n", "text/html");
+    // return add_response("Content-Type:%s\r\n", "application/json");
+
 }
 
 bool http_conn::add_content( const char* content )
@@ -468,14 +481,14 @@ bool http_conn::process_write(HTTP_CODE ret) {
                 return false;
             }
             break;
-        case BAD_REQUEST:       // 请求语法错误
+        case BAD_REQUEST:
             add_status_line(400, error_400_title );
             add_headers(strlen(error_400_form));
             if ( ! add_content(error_400_form)) {
                 return false;
             }
             break;
-        case NO_RESOURCE:       // 服务器没有资源
+        case NO_RESOURCE:
             add_status_line( 404, error_404_title );
             add_headers( strlen( error_404_form ) );
             if ( ! add_content( error_404_form ) ) {
@@ -491,17 +504,29 @@ bool http_conn::process_write(HTTP_CODE ret) {
             break;
         case FILE_REQUEST:  // 请求文件成功
             add_status_line(200, ok_200_title );
-            add_headers(m_file_stat.st_size);
-            m_iv[0].iov_base = m_write_buf;
-            m_iv[0].iov_len = m_write_idx;
-            m_iv[1].iov_base = m_file_address;
-            m_iv[1].iov_len = m_file_stat.st_size;
-            m_iv_count = 2;
-            bytes_to_send = m_write_idx + m_file_stat.st_size;
-            return true;
+            // 如果请求资源存在
+            if(m_file_stat.st_size != 0) {
+                add_headers(m_file_stat.st_size);
+                // 第一个iovec指针指向响应报文缓冲区，长度指向m_write_idx
+                m_iv[0].iov_base = m_write_buf;
+                m_iv[0].iov_len = m_write_idx;
+                // 第二个iovec指针指向mmap返回的文件指针，长度指向文件大小
+                m_iv[1].iov_base = m_file_address;
+                m_iv[1].iov_len = m_file_stat.st_size;
+                m_iv_count = 2;
+                // 发送的全部数据为响应报文头部信息和文件大小
+                bytes_to_send = m_write_idx + m_file_stat.st_size;
+                return true;
+            } else {
+                // 如果请求资源为0,返回空白html页面
+                const char* ok_string = "<html><body></body><html>";
+                add_headers(strlen(ok_string));
+                if(!add_content(ok_string))  return false;
+            }
         default:
             return false;
     }
+    // 除FILE_REQUEST状态外，其余状态只申请一个iovec，指向响应报文缓冲区
     m_iv[0].iov_base = m_write_buf;
     m_iv[0].iov_len = m_write_idx;
     m_iv_count = 1;

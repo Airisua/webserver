@@ -3,4 +3,4 @@ project(workspace)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(workspace main.cpp http/http_conn.cpp)
+add_executable(workspace main.cpp http/http_conn.cpp timer/timer.h)
