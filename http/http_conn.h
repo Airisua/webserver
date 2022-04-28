@@ -5,6 +5,7 @@
 #include <sys/epoll.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <map>
 #include <arpa/inet.h>
 #include <sys/mman.h>
 #include <sys/uio.h>
@@ -13,6 +14,8 @@
 #include <cerrno>
 #include <cstring>
 #include <cstdlib>
+#include "../locker/locker.h"
+#include "../pool/sql_connection_pool.h"
 
 class http_conn {
 public:
@@ -81,10 +84,12 @@ public:
     bool read(); // 非阻塞读
     bool write(); // 非阻塞写
 
+    void init_mysql_result(connection_pool *conn_pool);
 
 public:
     static int m_epoll_fd;  // 所有socket上的事件都被注册到同一个epoll内核事件中，所以设置成静态的
     static int m_user_count;  // 统计用户的数量
+    MYSQL* mysql;
 
 public:
     static const int READ_BUFFER_SIZE = 2048;  // 读缓冲区大小
@@ -122,6 +127,8 @@ private:
     ssize_t bytes_to_send; // 将要发送的数据的字节数
     ssize_t bytes_have_send; // 已经发送的字节数
 
+    char *m_string; //存储请求头数据
+    int cgi; // 是否启用post
 
     void init(); // 初始化连接其余的信息
     HTTP_CODE process_read();    // 解析HTTP请求
@@ -129,7 +136,7 @@ private:
     // 下面函数被process_read调用以分析HTTP请求
     HTTP_CODE parse_request_line(char* text); // 解析请求行
     HTTP_CODE parse_request_headers(char* text); // 解析请求头
-    HTTP_CODE parse_request_content(char* text) const; // 解析请求体
+    HTTP_CODE parse_request_content(char* text); // 解析请求体
     LINE_STATUS parse_line(); // 解析行
     char* get_line(); // 获取一行数据
     HTTP_CODE do_request(); // 具体请求处理

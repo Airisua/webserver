@@ -3,6 +3,7 @@
 #define WEBSERVER_ThreadPool_H
 
 #include "../locker/locker.h"
+#include "sql_connection_pool.h"
 #include <list>
 #include <cstdio>
 
@@ -11,41 +12,31 @@ template<typename T>
 class ThreadPool {
 public:
     // thread_number是线程池中线程的数量，max_requests是请求队列中最多允许的、等待处理的请求的数量
-    explicit ThreadPool(int thread_number = 10,int max_requests = 10000);
+    explicit ThreadPool(int thread_number = 8,int max_requests = 10000,connection_pool *conn_pool = nullptr);
 
     bool append(T* request);
 
     ~ThreadPool();
 private:
-    // 线程的数量
-    int m_thread_num;
 
-    // 描述线程池的数组,大小为 m_thread_num
-    pthread_t* m_threads;
-
-    // 请求队列中最多允许的、等待处理的请求的数量
-    int m_max_requests;
-
-    // 请求队列
-    std::list<T*> m_work_que;
-
-    // 保护请求队列的互斥锁
-    locker m_que_locker;
-
-    // 是否有任务需要处理
-    sem m_que_stat;
-
-    // 是否结束线程
-    bool m_stop;
+    int m_thread_num;           // 线程的数量
+    pthread_t* m_threads;       // 描述线程池的数组,大小为 m_thread_num
+    int m_max_requests;         // 请求队列中最多允许的、等待处理的请求的数量
+    std::list<T*> m_work_que;   // 请求队列
+    locker m_que_locker;        // 保护请求队列的互斥锁
+    sem m_que_stat;             // 是否有任务需要处理
+    bool m_stop;                // 是否结束线程
+    connection_pool *m_conn_pool; // 数据库
 
 private:
+    // 工作线程运行的函数，它不断从工作队列中取出任务并执行之
     static void *worker(void *arg);
     void run();
 };
 
 template<typename T>
-ThreadPool<T>::ThreadPool(int thread_number, int max_requests):
-m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_stop(false){
+ThreadPool<T>::ThreadPool(int thread_number, int max_requests,connection_pool *conn_pool):
+m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_stop(false),m_conn_pool(conn_pool){
 
     if(thread_number <= 0 || max_requests <= 0) {
         throw std::exception();
@@ -58,7 +49,7 @@ m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_st
 
     // 创建thread_number 个线程，并将他们设置为脱离线程
     for(int i = 0; i < thread_number; ++i) {
-        printf("create the %dth thread\n",i);
+       //  printf("create the %dth thread\n",i);
         if(pthread_create(m_threads+i, nullptr,worker,this) != 0) {
             delete[] m_threads;
             throw std::exception();
@@ -107,6 +98,8 @@ void ThreadPool<T>::run() {
         T* request = m_work_que.front(); // 取出第一个
         m_work_que.pop_front();
         m_que_locker.unlock();
+
+        connection_RAII mysql_con(&request->mysql,m_conn_pool);
         request->process();
     }
 }

@@ -19,6 +19,35 @@ int http_conn::m_user_count = 0;  // 所有的客户数
 //  const char* doc_root = "/wyj/workspace/webserver/resource";
   const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
 
+  // 存放用户名密码
+   std::map<std::string,std::string> users;
+
+   locker m_lock;
+   void http_conn::init_mysql_result(connection_pool *conn_pool) {
+       // 先从连接池中获取一个连接
+        MYSQL* mysql = nullptr;
+        connection_RAII m_conn(&mysql,conn_pool);
+
+       // 在user表中检索username，passwd数据，浏览器端输入
+       if(mysql_query(mysql,"SELECT username,passwd FROM user")) {
+           std::cout << "SELECT error: " << mysql_errno(mysql) << std::endl;
+       }
+
+       //从表中检索完整的结果集
+       auto res = mysql_store_result(mysql);
+       //返回结果集中的列数
+       auto num_fields = mysql_num_fields(res);
+       //返回所有字段结构的数组
+       auto fields = mysql_fetch_field(res);
+       //从结果集中获取下一行，将对应的用户名和密码，存入map中
+       //auto row = mysql_fetch_row(res);
+       while(auto row = mysql_fetch_row(res)) {
+            std::string tmp1(row[0]);
+            std::string tmp2(row[1]);
+            users[tmp1] = tmp2;
+       }
+   }
+
 // 设置文件描述符非阻塞
 void set_nonblocking(int fd) {
     int old_option = fcntl(fd,F_GETFL);
@@ -81,7 +110,7 @@ void http_conn::init() {
     m_read_idx = 0;     // 重置写
     m_write_idx = 0;    // 重置读
 
-
+    cgi = 0;
     m_content_length = 0;
     bytes_have_send = 0;
     bytes_to_send = 0;
@@ -189,12 +218,22 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text){ // 解析请求�
     }
     // GET\0/index.html HTTP/1.1
     *m_url++ = '\0';   // 置位空字符，字符串结束符
+
+    // 取出数据，并通过与GET和POST比较，以确定请求方式
     char* method = text;
     if ( strcasecmp(method, "GET") == 0 ) { // 忽略大小写比较
         m_method = GET;
+    } else if(strcasecmp(method,"POST") == 0) {
+        m_method = POST;
+        cgi = 1;
     } else {
         return BAD_REQUEST;
     }
+
+    // m_url此时跳过了第一个空格或\t字符，但不知道之后是否还有
+    // 将m_url向后偏移，通过查找，继续跳过空格和\t字符，指向请求资源的第一个字符
+    m_url+=strspn(m_url," \t");
+
     // /index.html HTTP/1.1
     // 检索字符串 str1 中第一个不在字符串 str2 中出现的字符下标
     m_version = strpbrk( m_url, " \t" );
@@ -212,15 +251,24 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text){ // 解析请求�
         // 在参数 str 所指向的字符串中搜索第一次出现字符 c（一个无符号字符）的位置。
         m_url = strchr( m_url, '/' );  // /index.html
     }
+    // 增加 https
     if (strncasecmp(m_url, "https://", 8) == 0)
     {
         m_url += 8;
         m_url = strchr(m_url, '/');
     }
+
+    // 一般的不会带有上述两种符号，直接是单独的/或/后面带访问资源
     if ( !m_url || m_url[0] != '/' ) {
         return BAD_REQUEST;
     }
-    m_check_state = CHECK_STATE_HEADER; // 主状态机检查状态变成检查请求头
+
+    //当url为/时，显示主界面
+    if(strlen(m_url) == 1) {
+        strcat(m_url,"index.html");
+    }
+
+    m_check_state = CHECK_STATE_HEADER; // 请求处理完毕 主状态机检查状态变成检查请求头
     return NO_REQUEST;
 }
 
@@ -260,10 +308,11 @@ http_conn::HTTP_CODE http_conn::parse_request_headers(char* text) { // 解析请
 }
 
 // 这里没有真正解析HTTP请求的消息体，只是判断它是否被完整的读入了
-http_conn::HTTP_CODE http_conn::parse_request_content(char* text) const { // 解析请求体
+http_conn::HTTP_CODE http_conn::parse_request_content(char* text){ // 解析请求体
     if ( m_read_idx >= ( m_content_length + m_checked_index ) )
     {
         text[ m_content_length ] = '\0';
+        m_string = text;
         return GET_REQUEST;
     }
     return NO_REQUEST;
@@ -307,7 +356,83 @@ http_conn::HTTP_CODE http_conn::do_request() {
     // 将初始化的m_real_file赋值为网站根目录
     strcpy( m_real_file, doc_root );
     int len = strlen(doc_root);
-    strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
+
+    const char *p = strrchr(m_url, '/');
+
+    // 实现登录和注册校验
+    if(cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3')) {
+        // 根据标志判断是登录检测还是注册检测
+        char flag = m_url[1];
+
+        char *m_url_real = new char[200];
+        strcpy(m_url_real, "/");
+        strcat(m_url_real, m_url + 2);
+        strncpy(m_real_file + len, m_url_real, FILENAME_LEN - len - 1);
+        delete[] m_url_real;
+
+        // 将用户名和密码提取出来
+        // user=123&password=123
+        char name[200], password[200];
+        int i;
+
+        // 以&为分隔符，前面的为用户名
+        for (i = 5; m_string[i] != '&'; ++i)
+            name[i - 5] = m_string[i];
+        name[i - 5] = '\0';
+
+        // 以&为分隔符，后面的是密码
+        int j = 0;
+        for (i = i + 10; m_string[i] != '\0'; ++i, ++j)
+            password[j] = m_string[i];
+        password[j] = '\0';
+
+        if(*(p + 1) == '3') {
+            // 如果是注册，先检测数据库中是否有重名
+            // 没有重名的，进行增加数据
+            char* sql_insert = new char[200];
+            strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
+            strcat(sql_insert, "'");
+            strcat(sql_insert, name);
+            strcat(sql_insert, "', '");
+            strcat(sql_insert, password);
+            strcat(sql_insert, "')");
+
+            // 判断map中能否找到重复的用户名
+            if(users.find(name) == users.end()) {
+                // 向数据库中插入数据时，需要通过锁来同步数据
+                m_lock.lock();
+                int res = mysql_query(mysql, sql_insert);
+                users.insert(std::pair<std::string, std::string>(name, password));
+                m_lock.unlock();
+
+                // 效验成功，跳转登录页面
+                if (!res) strcpy(m_url, "/login.html");
+                    // 校验失败，跳转注册失败页面
+                else strcpy(m_url, "/register_error.html");
+            } else strcpy(m_url,"/login_error.html");
+        }
+
+        else if(*(p + 1) == '2') {
+            // 如果是登录，直接判断
+            // 若浏览器端输入的用户名和密码在表中可以查找到，返回1，否则返回0
+            if (users.find(name) != users.end() && users[name] == password)
+                strcpy(m_url, "/welcome.html");
+            else
+                strcpy(m_url, "/login_error.html");
+        }
+
+    }
+
+    // 如果请求资源为/0，表示跳转注册界面
+    if(*(p + 1) == '0') {
+
+    }
+    // 如果请求资源为/1，表示跳转登录界面
+    else if(*(p + 1 ) == '1') {
+
+
+    } else  // 如果以上均不符合，即不是登录和注册，直接将url与网站目录拼接
+         strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
     // 获取m_real_file文件的相关的状态信息，-1失败，0成功
     if ( stat( m_real_file, &m_file_stat ) < 0 ) {
         return NO_RESOURCE;
@@ -325,7 +450,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
 
     // 以只读方式打开文件
     int fd = open( m_real_file, O_RDONLY );
-    // 创建内存映射
+    //  通过mmap将该文件映射到内存中
     m_file_address = ( char* )mmap( nullptr, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
     // 避免文件描述符的浪费和占用
     close( fd );
@@ -359,6 +484,7 @@ bool http_conn::write() {
     while (true) {
         // 分散写  writev将不连续的缓冲区的数据一起写出去
         temp = writev(m_sock_fd,m_iv,m_iv_count);
+
         if ( temp <= -1 ) {
             // 如果TCP写缓冲没有空间，则等待下一轮EPOLLOUT事件，虽然在此期间，
             // 服务器无法立即接收到同一客户的下一个请求，但可以保证连接的完整性。
@@ -421,13 +547,18 @@ bool http_conn::add_response( const char* format,... ) {  // 后面是个可变�
     va_list arg_list;
     va_start( arg_list, format );   // 初始化 arg_list
     int len = vsnprintf( m_write_buf + m_write_idx, WRITE_BUFFER_SIZE - 1 - m_write_idx, format, arg_list );
+    // 如果写入的数据长度超过缓冲区剩余空间，则报错
     if( len >= ( WRITE_BUFFER_SIZE - 1 - m_write_idx ) ) {
+        va_end(arg_list);
         return false;
     }
+    // 更新m_write_idx位置
     m_write_idx += len;
+    // 清空可变参列表
     va_end( arg_list );
     return true;
 }
+
 
 bool http_conn::add_status_line( int status, const char* title ) {
     return add_response( "%s %d %s\r\n", "HTTP/1.1", status, title );
@@ -442,20 +573,24 @@ bool http_conn::add_headers(size_t content_len) {
     return false;
 }
 
+// 添加连接状态，通知浏览器端是保持连接还是关闭
 bool http_conn::add_linger()
 {
     return add_response("Connection: %s\r\n", m_linger ? "keep-alive" : "close" );
 }
 
+// 添加空行
 bool http_conn::add_blank_line()
 {
     return add_response( "%s", "\r\n" );
 }
 
+// 添加Content-Length，表示响应报文的长度
 bool http_conn::add_content_length(size_t content_len) {
     return add_response( "Content-Length: %d\r\n", content_len );
 }
 
+// 添加文本类型，这里是html
 bool http_conn::add_content_type() {
     // 这里目前只写了html 一种类型
      return add_response("Content-Type:%s\r\n", "text/html");
@@ -463,6 +598,7 @@ bool http_conn::add_content_type() {
 
 }
 
+// 添加文本content
 bool http_conn::add_content( const char* content )
 {
     return add_response( "%s", content );

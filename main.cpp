@@ -14,10 +14,11 @@
 #include "pool/threadpool.h"
 #include "http/http_conn.h"
 #include "timer/timer.h"
+#include "pool/sql_connection_pool.h"
 
 #define MAX_FD 65536 // 最大文件描述符个数
 #define MAX_EVENT_NUMBER 10000 // 监听的最大事件数
-#define TIMESLOT 5 // 最小超时单位
+#define TIMESLOT 5 // 最小超时单
 
 //设置定时器相关参数
 static int pipe_fd[2];
@@ -93,6 +94,10 @@ int main(int argc,char* argv[]) {
     // 对SIGPIPE信号进行处理 忽略SIGPIPE信号
     addSig(SIGPIPE,SIG_IGN);
 
+    // 创建数据库连接
+    connection_pool *conn_pool = connection_pool::getInstance();
+    conn_pool->init("localhost", "root", "root", "test_db", 3306, 8);
+
     // 创建线程池，初始化线程池
     ThreadPool<http_conn>* pool = nullptr;
         try{
@@ -103,6 +108,9 @@ int main(int argc,char* argv[]) {
 
      // 创建一个数组 用于保存所有的客户端信息
     auto* users = new http_conn[MAX_FD];
+
+     // 初始化数据库读取表
+     users->init_mysql_result(conn_pool);
 
      // 创建用于监听的socket
      int listen_fd = socket(PF_INET,SOCK_STREAM,0);
