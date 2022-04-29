@@ -7,6 +7,7 @@ set(executable main.cpp http/http_conn.cpp timer/timer.h pool/sql_connection_poo
 set(test ${executable} )
 #include_directories(/usr/lib/mysql)
 add_executable(workspace ${executable})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 #include_directories(/usr/local/include/mysql++)
 include_directories(/usr/include/mysql)

@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <cstdarg>
 #include <cerrno>
+#include <mysql/mysql.h>
 #include <cstring>
 #include <cstdlib>
 #include "../locker/locker.h"
@@ -84,7 +85,7 @@ public:
     bool read(); // 非阻塞读
     bool write(); // 非阻塞写
 
-    void init_mysql_result(connection_pool *conn_pool);
+    static void init_mysql_result(connection_pool *conn_pool);
 
 public:
     static int m_epoll_fd;  // 所有socket上的事件都被注册到同一个epoll内核事件中，所以设置成静态的

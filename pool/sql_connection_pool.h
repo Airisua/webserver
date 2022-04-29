@@ -15,10 +15,10 @@ public:
     MYSQL* get_connection(); //获取数据库连接
     bool release_connection(MYSQL* conn); //释放连接
     void destroy_pool(); // 销毁所有连接
-    int get_free_conn(); // 获取空闲连接
+    int get_free_conn() const; // 获取空闲连接
 
     // 构造初始化
-    void init(std::string url,std::string user,std::string password,std::string data_base_name,int port,unsigned int max_conn);
+    void init(std::string url, std::string user, std::string password, std::string data_base_name, unsigned int port, unsigned int max_conn);
 
     // 单例模式
     static connection_pool* getInstance();
@@ -28,9 +28,9 @@ private:
     ~connection_pool();
 
 private:
-    int cur_conn;  //当前已使用的连接数
-    int free_conn; //当前空闲的连接数
-    int max_conn;  // 最大连接数
+    unsigned int cur_conn;  //当前已使用的连接数
+    unsigned int free_conn; //当前空闲的连接数
+    unsigned int max_conn;  // 最大连接数
 
 private:
     locker lock;

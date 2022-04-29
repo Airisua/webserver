@@ -1,14 +1,15 @@
 #include "sql_connection_pool.h"
 
 connection_pool* connection_pool::getInstance(){
-    static connection_pool* conn_pool;
-    return conn_pool;
+    static connection_pool conn_pool;
+    return &conn_pool;
 }
 
 connection_pool::connection_pool() : cur_conn(0),free_conn(0),max_conn(0) {}
 
 // 初始化
-void connection_pool::init(std::string url,std::string user,std::string password,std::string data_base_name,int port,unsigned int max_conn)
+void connection_pool::init(std::string url, std::string user, std::string password, std::string data_base_name,
+                           unsigned int port, unsigned int max_conn)
 {
     // 初始化数据库信息
     this->url = url;
@@ -28,12 +29,17 @@ void connection_pool::init(std::string url,std::string user,std::string password
             exit(1);
         }
 
+//        if(!mysql_real_connect(conn,"localhost","root","123456","test_db", 3306,nullptr,0)) {
+//            printf("error: %s\n", mysql_error(conn));
+//        }
+
         conn = mysql_real_connect(conn,url.c_str(),user.c_str(),password.c_str(),data_base_name.c_str(),port, nullptr,0);
+
         if(conn == nullptr) {
             std::cout << "Error" << mysql_error(conn);
-            exit(1);
+            exit(-1);
         }
-
+        std::cout << "11" << std::endl;
         // 更新连接池和空闲连接数量
         conn_list.push_back(conn);
         ++free_conn;
@@ -102,7 +108,7 @@ void connection_pool::destroy_pool(){
 }
 
 // 当前空闲连接数
-int connection_pool::get_free_conn() {
+int connection_pool::get_free_conn() const {
     return this->free_conn;
 }
 

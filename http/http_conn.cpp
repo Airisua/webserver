@@ -25,16 +25,16 @@ int http_conn::m_user_count = 0;  // 所有的客户数
    locker m_lock;
    void http_conn::init_mysql_result(connection_pool *conn_pool) {
        // 先从连接池中获取一个连接
-        MYSQL* mysql = nullptr;
-        connection_RAII m_conn(&mysql,conn_pool);
+        MYSQL *my_sql = nullptr;
+        connection_RAII m_conn(&my_sql,conn_pool);
 
        // 在user表中检索username，passwd数据，浏览器端输入
-       if(mysql_query(mysql,"SELECT username,passwd FROM user")) {
-           std::cout << "SELECT error: " << mysql_errno(mysql) << std::endl;
+       if(mysql_query(my_sql,"SELECT username,password FROM user")) {
+           std::cout << "SELECT error: " << mysql_errno(my_sql) << std::endl;
        }
 
        //从表中检索完整的结果集
-       auto res = mysql_store_result(mysql);
+       auto res = mysql_store_result(my_sql);
        //返回结果集中的列数
        auto num_fields = mysql_num_fields(res);
        //返回所有字段结构的数组
@@ -249,7 +249,8 @@ http_conn::HTTP_CODE http_conn::parse_request_line(char* text){ // 解析请求�
     if (strncasecmp(m_url, "http://", 7) == 0 ) { // 检查url是否合法
         m_url += 7;  	// 192.168.1.11:10000/index.html
         // 在参数 str 所指向的字符串中搜索第一次出现字符 c（一个无符号字符）的位置。
-        m_url = strchr( m_url, '/' );  // /index.html
+        m_url = strchr( m_url, '/' );  // /index
+        // .html
     }
     // 增加 https
     if (strncasecmp(m_url, "https://", 8) == 0)
@@ -355,7 +356,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
     // "/home/wlic/workspace/webserver/resource"
     // 将初始化的m_real_file赋值为网站根目录
     strcpy( m_real_file, doc_root );
-    int len = strlen(doc_root);
+    size_t len = strlen(doc_root);
 
     const char *p = strrchr(m_url, '/');
 
@@ -390,7 +391,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
             // 如果是注册，先检测数据库中是否有重名
             // 没有重名的，进行增加数据
             char* sql_insert = new char[200];
-            strcpy(sql_insert, "INSERT INTO user(username, passwd) VALUES(");
+            strcpy(sql_insert, "INSERT INTO user(username, password) VALUES(");
             strcat(sql_insert, "'");
             strcat(sql_insert, name);
             strcat(sql_insert, "', '");
@@ -409,7 +410,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
                 if (!res) strcpy(m_url, "/login.html");
                     // 校验失败，跳转注册失败页面
                 else strcpy(m_url, "/register_error.html");
-            } else strcpy(m_url,"/login_error.html");
+            } else strcpy(m_url,"/register_error.html");
         }
 
         else if(*(p + 1) == '2') {
@@ -425,13 +426,33 @@ http_conn::HTTP_CODE http_conn::do_request() {
 
     // 如果请求资源为/0，表示跳转注册界面
     if(*(p + 1) == '0') {
-
+        char *m_url_real = new char[200];
+        strcpy(m_url_real,"/register.html");
+        strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
+        delete[] m_url_real;
     }
     // 如果请求资源为/1，表示跳转登录界面
     else if(*(p + 1 ) == '1') {
+        char *m_url_real = new char[200] ;
+        strcpy(m_url_real,"/login.html");
+        strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
+        delete[] m_url_real;
+    }
+    // 图片页面
+    else if(*(p + 1) == '5') {
+        char *m_url_real = new char[200];
+        strcpy(m_url_real,"/pic.html");
+        strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
+        delete[] m_url_real;
+    }
+    // 视频页面
+    else if(*(p + 1) == '6') {
+        char *m_url_real = new char[200];
+        strcpy(m_url_real,"/video.html");
+        strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
+        delete[] m_url_real;
 
-
-    } else  // 如果以上均不符合，即不是登录和注册，直接将url与网站目录拼接
+    }else  // 如果以上均不符合，即不是登录和注册，直接将url与网站目录拼接
          strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
     // 获取m_real_file文件的相关的状态信息，-1失败，0成功
     if ( stat( m_real_file, &m_file_stat ) < 0 ) {

@@ -82,7 +82,6 @@ extern int set_nonblocking(int fd);
 
 
 int main(int argc,char* argv[]) {
-
     if(argc <= 1) {
         printf("usage: %s port_number\n",basename(argv[0]));
         return -1;
@@ -96,18 +95,19 @@ int main(int argc,char* argv[]) {
 
     // 创建数据库连接
     connection_pool *conn_pool = connection_pool::getInstance();
-    conn_pool->init("localhost", "root", "root", "test_db", 3306, 8);
+
+    conn_pool->init("localhost", "root", "123456", "test_db", 3306, 8);
 
     // 创建线程池，初始化线程池
     ThreadPool<http_conn>* pool = nullptr;
         try{
-            pool = new ThreadPool<http_conn>;
+            pool = new ThreadPool<http_conn>(conn_pool);
         } catch (...) {
             return -1;
         }
 
      // 创建一个数组 用于保存所有的客户端信息
-    auto* users = new http_conn[MAX_FD];
+    auto users = new http_conn[MAX_FD];
 
      // 初始化数据库读取表
      users->init_mysql_result(conn_pool);
