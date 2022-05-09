@@ -10,6 +10,6 @@ add_executable(workspace ${executable})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 #include_directories(/usr/local/include/mysql++)
-include_directories(/usr/include/mysql)
-link_directories(/usr/lib/x86_64-linux-gnu)
+include_directories(/usr/include/mysql)  # 头文件
+link_directories(/usr/lib/x86_64-linux-gnu)  # 动态库
 target_link_libraries(workspace libmysqlclient.so)
