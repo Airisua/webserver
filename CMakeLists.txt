@@ -3,7 +3,7 @@ project(workspace)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(executable main.cpp http/http_conn.cpp timer/timer.h pool/sql_connection_pool.h pool/sql_connection_pool.cpp)
+set(executable main.cpp http/http_conn.cpp timer/timer.h pool/sql_connection_pool.h pool/sql_connection_pool.cpp timer/timer_test.h log/block_queue.h)
 set(test ${executable} )
 #include_directories(/usr/lib/mysql)
 add_executable(workspace ${executable})

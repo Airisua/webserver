@@ -28,7 +28,7 @@ public:
     time_t expire{};
     // 回调函数
     void (*cb_func)(client_data* ){}; // 任务回调函数，处理的客户数据，由定时器的执行者传递给回调函数
-    client_data* user_data{}; // 连接资源
+    client_data* user_data{}; // 用户数据
     util_timer* prev; // 指向前一个定时器
     util_timer* next; // 指向后一个定时器
 };
