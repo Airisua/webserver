@@ -125,8 +125,8 @@ int main(int argc,char* argv[]) {
      int reuse = 1;
      setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof (reuse));
      // 绑定
-     ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
-     //ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
+     // ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
+     ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
      assert(ret >= 0);
      ret = listen(listen_fd,6);
      assert(ret >= 0);
