@@ -18,7 +18,7 @@
 
 #define MAX_FD 65536 // 最大文件描述符个数
 #define MAX_EVENT_NUMBER 10000 // 监听的最大事件数
-#define TIMESLOT 5 // 最小超时单位
+#define TIMESLOT 5 // 最小超时单
 
 //设置定时器相关参数
 static int pipe_fd[2];
@@ -96,7 +96,7 @@ int main(int argc,char* argv[]) {
     // 创建数据库连接
     connection_pool *conn_pool = connection_pool::getInstance();
 
-    conn_pool->init("localhost", "wlic", "WYJV58787", "test_db", 3306, 8);
+    conn_pool->init("localhost", "root", "123456", "test_db", 3306, 8);
 
     // 创建线程池，初始化线程池
     ThreadPool<http_conn>* pool = nullptr;

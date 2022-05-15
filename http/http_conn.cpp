@@ -15,9 +15,9 @@ int http_conn::m_epoll_fd = -1;  // 所有socket上的事件都被注册到同�
 int http_conn::m_user_count = 0;  // 所有的客户数
 
 // 网站跟目录
-    const char* doc_root = "/home/wlic/workspace/webserver/resource";
-//  const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
-//  const char* doc_root = "/home/wlic/workspace2/resource";
+//const char* doc_root = "/home/wlic/workspace/webserver/resource";
+//  const char* doc_root = "/wyj/workspace/webserver/resource";
+  const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
 
   // 存放用户名密码
    std::map<std::string,std::string> users;
