@@ -28,7 +28,7 @@ public:
     time_t expire{};
     // 回调函数
     void (*cb_func)(client_data* ){}; // 任务回调函数，处理的客户数据，由定时器的执行者传递给回调函数
-    client_data* user_data{}; // 用户数据
+    client_data* user_data{}; // 连接资源
     util_timer* prev; // 指向前一个定时器
     util_timer* next; // 指向后一个定时器
 };
@@ -85,7 +85,7 @@ public:
             timer->next = nullptr;
             add_timer(timer,head);
         }
-        // 带调整定时器在内部 将其取出 重新插入
+            // 带调整定时器在内部 将其取出 重新插入
         else {
             timer->prev->next = timer->next;
             timer->next->prev = timer->prev;
@@ -121,7 +121,7 @@ public:
             return;
         }
 
-        // 带删除定时器在链表内部时
+            // 带删除定时器在链表内部时
         else {
             timer->prev->next = timer->next;
             timer->next->prev = timer->prev;

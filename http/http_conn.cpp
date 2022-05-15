@@ -15,38 +15,37 @@ int http_conn::m_epoll_fd = -1;  // 所有socket上的事件都被注册到同�
 int http_conn::m_user_count = 0;  // 所有的客户数
 
 // 网站跟目录
-//const char* doc_root = "/home/wlic/workspace/webserver/resource";
-//  const char* doc_root = "/wyj/workspace/webserver/resource";
-  const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
+const char* doc_root = "/home/wlic/workspace/webserver/resource";
+//const char* doc_root = "/home/wangyujin/wyj/webserver/resource";
 
-  // 存放用户名密码
-   std::map<std::string,std::string> users;
+// 存放用户名密码
+std::map<std::string,std::string> users;
 
-   locker m_lock;
-   void http_conn::init_mysql_result(connection_pool *conn_pool) {
-       // 先从连接池中获取一个连接
-        MYSQL *my_sql = nullptr;
-        connection_RAII m_conn(&my_sql,conn_pool);
+locker m_lock;
+void http_conn::init_mysql_result(connection_pool *conn_pool) {
+    // 先从连接池中获取一个连接
+    MYSQL *my_sql = nullptr;
+    connection_RAII m_conn(&my_sql,conn_pool);
 
-       // 在user表中检索username，passwd数据，浏览器端输入
-       if(mysql_query(my_sql,"SELECT username,password FROM user")) {
-           std::cout << "SELECT error: " << mysql_errno(my_sql) << std::endl;
-       }
+    // 在user表中检索username，passwd数据，浏览器端输入
+    if(mysql_query(my_sql,"SELECT username,password FROM user")) {
+        std::cout << "SELECT error: " << mysql_errno(my_sql) << std::endl;
+    }
 
-       //从表中检索完整的结果集
-       auto res = mysql_store_result(my_sql);
-       //返回结果集中的列数
-       auto num_fields = mysql_num_fields(res);
-       //返回所有字段结构的数组
-       auto fields = mysql_fetch_field(res);
-       //从结果集中获取下一行，将对应的用户名和密码，存入map中
-       //auto row = mysql_fetch_row(res);
-       while(auto row = mysql_fetch_row(res)) {
-            std::string tmp1(row[0]);
-            std::string tmp2(row[1]);
-            users[tmp1] = tmp2;
-       }
-   }
+    //从表中检索完整的结果集
+    auto res = mysql_store_result(my_sql);
+    //返回结果集中的列数
+    auto num_fields = mysql_num_fields(res);
+    //返回所有字段结构的数组
+    auto fields = mysql_fetch_field(res);
+    //从结果集中获取下一行，将对应的用户名和密码，存入map中
+    //auto row = mysql_fetch_row(res);
+    while(auto row = mysql_fetch_row(res)) {
+        std::string tmp1(row[0]);
+        std::string tmp2(row[1]);
+        users[tmp1] = tmp2;
+    }
+}
 
 // 设置文件描述符非阻塞
 void set_nonblocking(int fd) {
@@ -136,21 +135,21 @@ bool http_conn::read() {
 
     // 读取到的字节
     ssize_t bytes_read = 0;
-   while(true) {
-       // 从m_read_buf + m_read_idx索引处开始保存数据，大小是READ_BUFFER_SIZE - m_read_idx
-       bytes_read = recv(m_sock_fd,m_read_buf + m_read_idx,READ_BUFFER_SIZE - m_read_idx,0);
-       if(bytes_read == -1) {
-           if(errno == EAGAIN || errno == EWOULDBLOCK) {
-               // 没有数据
-               break;
-           }
-           return false;
-       } else if(bytes_read == 0) {
-           // 对方关闭连接
-           return false;
-       }
-       m_read_idx += bytes_read;  // 更新下次读取的位置
-   }
+    while(true) {
+        // 从m_read_buf + m_read_idx索引处开始保存数据，大小是READ_BUFFER_SIZE - m_read_idx
+        bytes_read = recv(m_sock_fd,m_read_buf + m_read_idx,READ_BUFFER_SIZE - m_read_idx,0);
+        if(bytes_read == -1) {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                // 没有数据
+                break;
+            }
+            return false;
+        } else if(bytes_read == 0) {
+            // 对方关闭连接
+            return false;
+        }
+        m_read_idx += bytes_read;  // 更新下次读取的位置
+    }
     printf("读取到数据: %s\n",m_read_buf);
     return true;
 }
@@ -168,7 +167,7 @@ http_conn::HTTP_CODE http_conn::process_read() { // 解析HTTP请求
     char* text = nullptr;
 
     while((m_check_state == CHECK_STATE_CONTENT) && (line_status == LINE_OK)
-        || ((line_status = parse_line()) == LINE_OK)) {
+          || ((line_status = parse_line()) == LINE_OK)) {
         // 解析到请求体（完整的）  或者或者解析到一行完整的数据
 
         // 获取一行数据
@@ -202,7 +201,7 @@ http_conn::HTTP_CODE http_conn::process_read() { // 解析HTTP请求
                 break;
             }
             default:{
-            return INTERNAL_ERROR;
+                return INTERNAL_ERROR;
             }
         }
     }
@@ -431,21 +430,21 @@ http_conn::HTTP_CODE http_conn::do_request() {
         strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
         delete[] m_url_real;
     }
-    // 如果请求资源为/1，表示跳转登录界面
+        // 如果请求资源为/1，表示跳转登录界面
     else if(*(p + 1 ) == '1') {
         char *m_url_real = new char[200] ;
         strcpy(m_url_real,"/login.html");
         strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
         delete[] m_url_real;
     }
-    // 图片页面
+        // 图片页面
     else if(*(p + 1) == '5') {
         char *m_url_real = new char[200];
         strcpy(m_url_real,"/pic.html");
         strncpy(m_real_file + len,m_url_real, strlen(m_url_real));
         delete[] m_url_real;
     }
-    // 视频页面
+        // 视频页面
     else if(*(p + 1) == '6') {
         char *m_url_real = new char[200];
         strcpy(m_url_real,"/video.html");
@@ -453,7 +452,7 @@ http_conn::HTTP_CODE http_conn::do_request() {
         delete[] m_url_real;
 
     }else  // 如果以上均不符合，即不是登录和注册，直接将url与网站目录拼接
-         strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
+        strncpy( m_real_file + len, m_url, FILENAME_LEN - len - 1 );
     // 获取m_real_file文件的相关的状态信息，-1失败，0成功
     if ( stat( m_real_file, &m_file_stat ) < 0 ) {
         return NO_RESOURCE;
@@ -530,32 +529,32 @@ bool http_conn::write() {
 //                return false;
 //            }
 //        }
-         // 判断响应头是否发送完毕
-         if(bytes_have_send >= m_iv[0].iov_len) {
-             // 头已经发送完毕
-             m_iv[0].iov_len = 0;
-             m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
-             m_iv[1].iov_len = bytes_to_send;
-         } else {
-             // 没有发送完毕，更新下次写数据的位置
-             m_iv[0].iov_base = m_write_buf + bytes_have_send;
-             m_iv[0].iov_len = m_iv[0].iov_len - temp;
-         }
+        // 判断响应头是否发送完毕
+        if(bytes_have_send >= m_iv[0].iov_len) {
+            // 头已经发送完毕
+            m_iv[0].iov_len = 0;
+            m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
+            m_iv[1].iov_len = bytes_to_send;
+        } else {
+            // 没有发送完毕，更新下次写数据的位置
+            m_iv[0].iov_base = m_write_buf + bytes_have_send;
+            m_iv[0].iov_len = m_iv[0].iov_len - temp;
+        }
 
-         // 判断数据是否全部发送出去：
-         if(bytes_to_send <= 0) {
-             // 没有数据要发送了
-             unmap();
-             mod_fd(m_epoll_fd,m_sock_fd,EPOLLIN);
+        // 判断数据是否全部发送出去：
+        if(bytes_to_send <= 0) {
+            // 没有数据要发送了
+            unmap();
+            mod_fd(m_epoll_fd,m_sock_fd,EPOLLIN);
 
-             if(m_linger) {
-                 // 重新初始化http对象
-                 init();
-                 return true;
-             } else {
-                 return false;
-             }
-         }
+            if(m_linger) {
+                // 重新初始化http对象
+                init();
+                return true;
+            } else {
+                return false;
+            }
+        }
     }
 }
 
@@ -614,7 +613,7 @@ bool http_conn::add_content_length(size_t content_len) {
 // 添加文本类型，这里是html
 bool http_conn::add_content_type() {
     // 这里目前只写了html 一种类型
-     return add_response("Content-Type:%s\r\n", "text/html");
+    return add_response("Content-Type:%s\r\n", "text/html");
     // return add_response("Content-Type:%s\r\n", "application/json");
 
 }

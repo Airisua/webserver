@@ -18,7 +18,7 @@
 
 #define MAX_FD 65536 // 最大文件描述符个数
 #define MAX_EVENT_NUMBER 10000 // 监听的最大事件数
-#define TIMESLOT 5 // 最小超时单
+#define TIMESLOT 5 // 最小超时单位
 
 //设置定时器相关参数
 static int pipe_fd[2];
@@ -61,7 +61,7 @@ void timer_handler(){
 
 // 定时器回调函数 删除非活动连接在socket上的注册事件，并关闭
 void cb_func(client_data* user_data) {
-   // 删除非活动连接在socket上的注册事件
+    // 删除非活动连接在socket上的注册事件
     epoll_ctl(epoll_fd,EPOLL_CTL_DEL,user_data->socket_fd,nullptr);
     assert(user_data);
     // 关闭文件描述符
@@ -96,46 +96,46 @@ int main(int argc,char* argv[]) {
     // 创建数据库连接
     connection_pool *conn_pool = connection_pool::getInstance();
 
-    conn_pool->init("localhost", "root", "123456", "test_db", 3306, 8);
+    conn_pool->init("localhost", "wlic", "WYJV58787", "test_db", 3306, 8);
 
     // 创建线程池，初始化线程池
     ThreadPool<http_conn>* pool = nullptr;
-        try{
-            pool = new ThreadPool<http_conn>(conn_pool);
-        } catch (...) {
-            return -1;
-        }
+    try{
+        pool = new ThreadPool<http_conn>(conn_pool);
+    } catch (...) {
+        return -1;
+    }
 
-     // 创建一个数组 用于保存所有的客户端信息
+    // 创建一个数组 用于保存所有的客户端信息
     auto users = new http_conn[MAX_FD];
 
-     // 初始化数据库读取表
-     users->init_mysql_result(conn_pool);
+    // 初始化数据库读取表
+    users->init_mysql_result(conn_pool);
 
-     // 创建用于监听的socket
-     int listen_fd = socket(PF_INET,SOCK_STREAM,0);
+    // 创建用于监听的socket
+    int listen_fd = socket(PF_INET,SOCK_STREAM,0);
 
-     int ret = 0;
-     struct sockaddr_in address{};
-     address.sin_family = AF_INET;
-     address.sin_addr.s_addr = INADDR_ANY;
-     address.sin_port = htons(port);
+    int ret = 0;
+    struct sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(port);
 
-     // 端口复用
-     int reuse = 1;
-     setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof (reuse));
-     // 绑定
-     // ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
-     ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
-     assert(ret >= 0);
-     ret = listen(listen_fd,6);
-     assert(ret >= 0);
+    // 端口复用
+    int reuse = 1;
+    setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof (reuse));
+    // 绑定
+    ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
+    //ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
+    assert(ret >= 0);
+    ret = listen(listen_fd,6);
+    assert(ret >= 0);
 
 
-     // 创建epoll对象 事件数组
-     epoll_event events[MAX_EVENT_NUMBER];
-     epoll_fd = epoll_create(5);
-     // 添加到epoll对象中
+    // 创建epoll对象 事件数组
+    epoll_event events[MAX_EVENT_NUMBER];
+    epoll_fd = epoll_create(5);
+    // 添加到epoll对象中
     add_fd(epoll_fd,listen_fd, false);
     http_conn::m_epoll_fd = epoll_fd;
 
@@ -227,7 +227,7 @@ int main(int argc,char* argv[]) {
                 auto *timer = users_timer[sock_fd].timer;
                 if(timer)  timer_lst.del_timer(timer);
             }
-               //  管道读端对应文件描述符发生 读事件
+                //  管道读端对应文件描述符发生 读事件
             else if((sock_fd == pipe_fd[0]) && (events[i].events & EPOLLIN)){
                 int sig;
                 char signals[1024];
@@ -250,7 +250,7 @@ int main(int argc,char* argv[]) {
                 }
             }
 
-            // 处理客户连接上接收到的数据
+                // 处理客户连接上接收到的数据
             else if(events[i].events & EPOLLIN) {
                 // 创建定时器临时变量，将该连接对应的定时器取出来
                 auto *timer = users_timer[sock_fd].timer;

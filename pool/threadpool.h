@@ -4,8 +4,8 @@
 
 #include "../locker/locker.h"
 #include "sql_connection_pool.h"
-#include <iostream>
 #include <list>
+#include <cstdio>
 
 // 线程池类，将它定义为模板类是为了代码复用
 template<typename T>
@@ -36,7 +36,7 @@ private:
 
 template<typename T>
 ThreadPool<T>::ThreadPool(connection_pool *conn_pool,int thread_number, int max_requests):
-m_conn_pool(conn_pool),m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_stop(false){
+        m_conn_pool(conn_pool),m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_stop(false){
 
     if(thread_number <= 0 || max_requests <= 0) {
         throw std::exception();

@@ -29,8 +29,8 @@ public:
         return &m_mutex;
     }
 
- ~locker() {
-     pthread_mutex_destroy(&m_mutex);
+    ~locker() {
+        pthread_mutex_destroy(&m_mutex);
     }
 private:
     pthread_mutex_t m_mutex{};
@@ -40,15 +40,15 @@ private:
 class cond {
 public:
     cond() {
-    if(pthread_cond_init(&m_cond, nullptr) != 0) {
-        throw std::exception();
+        if(pthread_cond_init(&m_cond, nullptr) != 0) {
+            throw std::exception();
+        }
     }
-    }
-   // 等待，调用函数，线程会阻塞
+    // 等待，调用函数，线程会阻塞
     bool wait(pthread_mutex_t &m_mutex) {
-    int ret = 0;
-    ret = pthread_cond_wait(&m_cond,&m_mutex);
-    return ret == 0;
+        int ret = 0;
+        ret = pthread_cond_wait(&m_cond,&m_mutex);
+        return ret == 0;
     }
 
     // 等待多长时间，调用了这个函数，线程会阻塞，直到指定的时间结束
@@ -104,7 +104,7 @@ public:
         sem_destroy(&m_sem);
     }
 private:
-sem_t m_sem{};
+    sem_t m_sem{};
 };
 
 #endif //WEBSERVER_LOCKER_H
