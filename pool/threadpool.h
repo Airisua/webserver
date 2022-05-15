@@ -14,7 +14,7 @@ public:
     // thread_number是线程池中线程的数量，max_requests是请求队列中最多允许的、等待处理的请求的数量
     explicit ThreadPool(connection_pool *conn_pool = nullptr,int thread_number = 8,int max_requests = 10000);
 
-    bool append(T* request);
+    bool append(T* request); // 添加任务接口
 
     ~ThreadPool();
 private:

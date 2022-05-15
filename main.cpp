@@ -114,6 +114,7 @@ int main(int argc,char* argv[]) {
 
     // 创建用于监听的socket
     int listen_fd = socket(PF_INET,SOCK_STREAM,0);
+    assert(listen_fd >= 0);
 
     int ret = 0;
     struct sockaddr_in address{};
@@ -125,8 +126,8 @@ int main(int argc,char* argv[]) {
     int reuse = 1;
     setsockopt(listen_fd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof (reuse));
     // 绑定
-    ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
-    //ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
+    //ret = bind(listen_fd, reinterpret_cast<const sockaddr *>(&address), sizeof (address));
+    ret = bind(listen_fd,(sockaddr *)&address,sizeof (address));
     assert(ret >= 0);
     ret = listen(listen_fd,6);
     assert(ret >= 0);
@@ -135,6 +136,7 @@ int main(int argc,char* argv[]) {
     // 创建epoll对象 事件数组
     epoll_event events[MAX_EVENT_NUMBER];
     epoll_fd = epoll_create(5);
+    assert(epoll_fd != -1);
     // 添加到epoll对象中
     add_fd(epoll_fd,listen_fd, false);
     http_conn::m_epoll_fd = epoll_fd;
@@ -179,8 +181,8 @@ int main(int argc,char* argv[]) {
                 // 有客户端连接进来
                 struct sockaddr_in client_address{};
                 socklen_t client_address_len = sizeof (client_address);
-                int conn_fd = accept(listen_fd, reinterpret_cast<sockaddr *>(&client_address), &client_address_len);
-                // int conn_fd = accept(listen_fd,(sockaddr*)&client_address,&client_address_len);
+                // int conn_fd = accept(listen_fd, reinterpret_cast<sockaddr *>(&client_address), &client_address_len);
+                int conn_fd = accept(listen_fd,(sockaddr*)&client_address,&client_address_len);
 
                 if(conn_fd < 0) {
                     printf( "errno is: %d\n", errno );

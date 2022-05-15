@@ -48,10 +48,11 @@ void http_conn::init_mysql_result(connection_pool *conn_pool) {
 }
 
 // 设置文件描述符非阻塞
-void set_nonblocking(int fd) {
+int set_nonblocking(int fd) {
     int old_option = fcntl(fd,F_GETFL);
     int new_option = old_option | O_NONBLOCK;
     fcntl(fd,F_SETFL,new_option);
+    return old_option;
 }
 
 // 向epoll中添加需要监听的文件描述符
@@ -59,8 +60,8 @@ void set_nonblocking(int fd) {
 void add_fd(int epoll_fd,int fd,bool one_shot){
     epoll_event event{};
     event.data.fd = fd;
-    event.events = EPOLLIN | EPOLLRDHUP;
-    //event.events = EPOLLIN | EPOLLRDHUP | EPOLLET;
+    event.events = EPOLLIN | EPOLLRDHUP;              // LT
+    //event.events = EPOLLIN | EPOLLRDHUP | EPOLLET;  // ET
     if(one_shot) {
         // 防止同一个通信被不同的线程处理
         event.events |= EPOLLONESHOT;
@@ -78,7 +79,8 @@ void remove_fd(int epoll_fd,int fd){
 void mod_fd(int epoll_fd,int fd,int ev) {
     epoll_event event{};
     event.data.fd = fd;
-    event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
+    // event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;     // ET
+    event.events = ev | EPOLLONESHOT | EPOLLRDHUP;                  // LT
     epoll_ctl(epoll_fd,EPOLL_CTL_MOD,fd,&event);
 }
 // 初始化连接,外部调用初始化套接字地址
@@ -139,6 +141,7 @@ bool http_conn::read() {
         // 从m_read_buf + m_read_idx索引处开始保存数据，大小是READ_BUFFER_SIZE - m_read_idx
         bytes_read = recv(m_sock_fd,m_read_buf + m_read_idx,READ_BUFFER_SIZE - m_read_idx,0);
         if(bytes_read == -1) {
+            // 非阻塞ET模式下，需要一次性将数据读完
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 // 没有数据
                 break;
@@ -150,7 +153,7 @@ bool http_conn::read() {
         }
         m_read_idx += bytes_read;  // 更新下次读取的位置
     }
-    printf("读取到数据: %s\n",m_read_buf);
+   // printf("读取到数据: %s\n",m_read_buf);
     return true;
 }
 
@@ -505,7 +508,7 @@ bool http_conn::write() {
         // 分散写  writev将不连续的缓冲区的数据一起写出去
         temp = writev(m_sock_fd,m_iv,m_iv_count);
 
-        if ( temp <= -1 ) {
+        if ( temp < 0 ) {
             // 如果TCP写缓冲没有空间，则等待下一轮EPOLLOUT事件，虽然在此期间，
             // 服务器无法立即接收到同一客户的下一个请求，但可以保证连接的完整性。
             if( errno == EAGAIN ) {
@@ -538,7 +541,7 @@ bool http_conn::write() {
         } else {
             // 没有发送完毕，更新下次写数据的位置
             m_iv[0].iov_base = m_write_buf + bytes_have_send;
-            m_iv[0].iov_len = m_iv[0].iov_len - temp;
+            m_iv[0].iov_len = m_iv[0].iov_len - bytes_have_send;
         }
 
         // 判断数据是否全部发送出去：
@@ -585,12 +588,8 @@ bool http_conn::add_status_line( int status, const char* title ) {
 }
 
 bool http_conn::add_headers(size_t content_len) {
-    add_content_length(content_len);
-    add_content_type();
-    add_linger();
-    add_blank_line();
-
-    return false;
+   return  add_content_length(content_len) &&
+           add_linger() && add_blank_line();
 }
 
 // 添加连接状态，通知浏览器端是保持连接还是关闭
@@ -614,7 +613,6 @@ bool http_conn::add_content_length(size_t content_len) {
 bool http_conn::add_content_type() {
     // 这里目前只写了html 一种类型
     return add_response("Content-Type:%s\r\n", "text/html");
-    // return add_response("Content-Type:%s\r\n", "application/json");
 
 }
 
