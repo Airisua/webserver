@@ -4,9 +4,11 @@ project(workspace)
 set(CMAKE_CXX_STANDARD 14)
 
 set(executable main.cpp http/http_conn.cpp timer/timer.h pool/sql_connection_pool.h pool/sql_connection_pool.cpp)
-set(test ${executable} )
-#include_directories(/usr/lib/mysql)
-add_executable(workspace ${executable})
+set(ex2 ${executable}  timer/timer_wheel.h timer/timer_wheel.cpp main_timerwheel.cpp timer/timer_list.cpp timer/timer_list.h pool/thread_test.h )
+set(ex3 ${ex2} epoll/server.h epoll/server.cpp main_test.cpp log/block_queue.h log/test.h log/log.h log/log.cpp buffer/buffer.h buffer/buffer.cpp)
+set(ex4 ${ex3})
+
+add_executable(workspace ${ex4})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 #include_directories(/usr/local/include/mysql++)
