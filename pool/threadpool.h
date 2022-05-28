@@ -1,11 +1,11 @@
-
 #ifndef WEBSERVER_ThreadPool_H
 #define WEBSERVER_ThreadPool_H
 
-#include "../locker/locker.h"
 #include "sql_connection_pool.h"
-#include <list>
-#include <cstdio>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
+#include <iostream>
 
 // 线程池类，将它定义为模板类是为了代码复用
 template<typename T>
@@ -19,13 +19,12 @@ public:
     ~ThreadPool();
 private:
 
-    int m_thread_num;           // 线程的数量
-    pthread_t* m_threads;       // 描述线程池的数组,大小为 m_thread_num
-    int m_max_requests;         // 请求队列中最多允许的、等待处理的请求的数量
-    std::list<T*> m_work_que;   // 请求队列
-    locker m_que_locker;        // 保护请求队列的互斥锁
-    sem m_que_stat;             // 是否有任务需要处理
-    bool m_stop;                // 是否结束线程
+    int m_thread_num;             // 线程的数量
+    int m_max_requests;           // 请求队列中最多允许的、等待处理的请求的数量
+    std::queue<T* > m_work_que;   // 任务队列
+    std::mutex m_mutex;           // 互斥量
+    std::condition_variable cond; // 条件变量
+    bool m_stop;                  // 是否结束线程
     connection_pool *m_conn_pool; // 数据库
 
 private:
@@ -36,70 +35,65 @@ private:
 
 template<typename T>
 ThreadPool<T>::ThreadPool(connection_pool *conn_pool,int thread_number, int max_requests):
-        m_conn_pool(conn_pool),m_thread_num(thread_number),m_max_requests(max_requests),m_threads(nullptr),m_stop(false){
+        m_conn_pool(conn_pool),m_thread_num(thread_number),m_max_requests(max_requests),m_stop(false){
 
-    if(thread_number <= 0 || max_requests <= 0) {
+    if(m_thread_num <= 0 || m_thread_num > m_max_requests) {
         throw std::exception();
     }
 
-    m_threads = new pthread_t[m_thread_num];
-    if(!m_threads) {
-        throw std::exception();
-    }
+
     // 创建thread_number 个线程，并将他们设置为脱离线程
-    for(int i = 0; i < thread_number; ++i) {
-        printf("create the %dth thread\n",i);
-        if(pthread_create(m_threads+i, nullptr,worker,this) != 0) {
-            delete[] m_threads;
-            throw std::exception();
-        }
-        // 线程分离
-        if(pthread_detach(m_threads[i])) {
-            delete[] m_threads;
-            throw std::exception();
+    for(int i = 0; i < m_thread_num; ++i) {
+        pthread_t pid;  // 创建线程
+        if(pthread_create(&pid, nullptr,worker,static_cast<void*>(this)) == 0) {
+            std::cout << "create " << i + 1 << " thread" << std::endl;
+            pthread_detach(pid); // 线程分离
         }
     }
+
 }
 
 template<typename T>
 ThreadPool<T>::~ThreadPool<T>() {
-    delete[] m_threads;
-    this->m_stop = true;
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_stop = true;
+    }
+    cond.notify_all(); // 通知所有线程停止
 }
 
 template<typename T>
 bool ThreadPool<T>::append(T *request) {
-    // 操作工作队列时要加锁，因为它被所有线程共享
-    m_que_locker.lock();
-    // 超过的允许的最大请求数
     if(m_work_que.size() >= m_max_requests) {
-        m_que_locker.unlock();
+        std::cout << "ThreadPool: Work queue is full" << std::endl;
         return false;
     }
-    m_work_que.push_back(request);
-    m_que_locker.unlock();
-    m_que_stat.post(); // 记得信号量加 1
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_work_que.template emplace(request);
+    }
+    cond.notify_one(); // 通知线程
     return true;
 }
 
 template< typename T >
 void *ThreadPool<T>::worker(void *arg) {
-    auto * pool = (ThreadPool *)arg;
+    auto * pool = static_cast<ThreadPool* >(arg);
     pool->run();
-    return pool;
+    return nullptr;
 }
 
 template< typename T >
 void ThreadPool<T>::run() {
+    std::unique_lock<std::mutex> lock(m_mutex);
     while(!m_stop) {
-        m_que_stat.wait();  // 信号量 -1 没有数据时阻塞
-        m_que_locker.lock();
-        T* request = m_work_que.front(); // 取出第一个
-        m_work_que.pop_front();
-        m_que_locker.unlock();
-
-        connection_RAII mysql_con(&request->mysql,m_conn_pool);
-        request->process();
+        cond.wait(lock);
+        if(!m_work_que.empty()) {
+            T* request = m_work_que.front(); // 取出第一个
+            m_work_que.pop();
+            connection_RAII mysql_con(&request->mysql,m_conn_pool);
+            request->process();
+        }
     }
 }
 

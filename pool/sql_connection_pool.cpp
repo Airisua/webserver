@@ -1,4 +1,5 @@
 #include "sql_connection_pool.h"
+#include "../log/log.h"
 
 connection_pool* connection_pool::getInstance(){
     static connection_pool conn_pool;
@@ -25,7 +26,7 @@ void connection_pool::init(std::string url, std::string user, std::string passwo
         conn = mysql_init(conn);
 
         if(conn == nullptr) {
-            std::cout << "Error" << mysql_error(conn);
+            LOG_ERROR("mysql init error!");
             exit(1);
         }
 
@@ -36,10 +37,9 @@ void connection_pool::init(std::string url, std::string user, std::string passwo
         conn = mysql_real_connect(conn,url.c_str(),user.c_str(),password.c_str(),data_base_name.c_str(),port, nullptr,0);
 
         if(conn == nullptr) {
-            std::cout << "Error" << mysql_error(conn);
+            LOG_ERROR("mysql connect error !");
             exit(-1);
         }
-        std::cout << "11" << std::endl;
         // 更新连接池和空闲连接数量
         conn_list.push_back(conn);
         ++free_conn;
