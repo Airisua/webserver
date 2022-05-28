@@ -29,7 +29,8 @@ void http_conn::init_mysql_result(connection_pool *conn_pool) {
 
     // 在user表中检索username，passwd数据，浏览器端输入
     if(mysql_query(my_sql,"SELECT username,password FROM user")) {
-        std::cout << "SELECT error: " << mysql_errno(my_sql) << std::endl;
+//        std::cout << "SELECT error: " << mysql_errno(my_sql) << std::endl;
+        LOG_ERROR("select error: ", mysql_errno(my_sql));
     }
 
     //从表中检索完整的结果集
@@ -49,8 +50,8 @@ void http_conn::init_mysql_result(connection_pool *conn_pool) {
 
 // 设置文件描述符非阻塞
 int set_nonblocking(int fd) {
-    int old_option = fcntl(fd,F_GETFL);
-    int new_option = old_option | O_NONBLOCK;
+    int old_option = fcntl(fd,F_GETFL);     // 获取文件描述符旧的状态
+    int new_option = old_option | O_NONBLOCK;    // 设置文件描述符非阻塞
     fcntl(fd,F_SETFL,new_option);
     return old_option;
 }
@@ -79,8 +80,8 @@ void remove_fd(int epoll_fd,int fd){
 void mod_fd(int epoll_fd,int fd,int ev) {
     epoll_event event{};
     event.data.fd = fd;
-    // event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;     // ET
-    event.events = ev | EPOLLONESHOT | EPOLLRDHUP;                  // LT
+    event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;     // ET
+    //event.events = ev | EPOLLONESHOT | EPOLLRDHUP;                  // LT
     epoll_ctl(epoll_fd,EPOLL_CTL_MOD,fd,&event);
 }
 // 初始化连接,外部调用初始化套接字地址
@@ -169,14 +170,15 @@ http_conn::HTTP_CODE http_conn::process_read() { // 解析HTTP请求
     HTTP_CODE ret = NO_REQUEST;
     char* text = nullptr;
 
-    while((m_check_state == CHECK_STATE_CONTENT) && (line_status == LINE_OK)
+    while((m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK)
           || ((line_status = parse_line()) == LINE_OK)) {
         // 解析到请求体（完整的）  或者或者解析到一行完整的数据
 
         // 获取一行数据
         text = get_line();
         m_start_line = m_checked_index;  // 更新解析行的位置
-        printf("got one http line: %s\n",text);
+//        printf("got one http line: %s\n",text);
+//        LOG_INFO("got one http line: %s\n",text);
 
         switch (m_check_state) {
             case CHECK_STATE_REQUEST_LINE:{
@@ -305,7 +307,8 @@ http_conn::HTTP_CODE http_conn::parse_request_headers(char* text) { // 解析请
         text += strspn( text, " \t" );
         m_host = text;
     } else {
-        printf( "oop! unknown header %s\n", text );
+//        printf( "oop! unknown header %s\n", text );
+        LOG_INFO("unknown header %s\n", text);
     }
     return NO_REQUEST;
 }
@@ -495,8 +498,9 @@ void http_conn::unmap() {
 // 写http响应
 bool http_conn::write() {
     ssize_t temp = 0;
-    // ssize_t bytes_have_send = 0;    // 已经发送的字节
-    // ssize_t bytes_to_send = m_write_idx;// 将要发送的字节 （m_write_idx）写缓冲区中待发送的字节数
+    // 会出现大文件请求不完整的问题
+   // bytes_have_send = 0;    // 已经发送的字节
+   // bytes_to_send = m_write_idx;// 将要发送的字节 （m_write_idx）写缓冲区中待发送的字节数
 
     if ( bytes_to_send == 0 ) {
         // 将要发送的字节为0，这一次响应结束。
@@ -579,6 +583,8 @@ bool http_conn::add_response( const char* format,... ) {  // 后面是个可变�
     m_write_idx += len;
     // 清空可变参列表
     va_end( arg_list );
+
+    LOG_INFO("request:%s",m_write_buf);
     return true;
 }
 
@@ -629,34 +635,43 @@ bool http_conn::process_write(HTTP_CODE ret) {
     switch (ret)
     {
         case INTERNAL_ERROR:    // 内部错误
+        {
             add_status_line( 500, error_500_title );
             add_headers( strlen( error_500_form ) );
             if ( ! add_content( error_500_form ) ) {
                 return false;
             }
             break;
+        }
         case BAD_REQUEST:
+        {
             add_status_line(400, error_400_title );
             add_headers(strlen(error_400_form));
             if ( ! add_content(error_400_form)) {
                 return false;
             }
             break;
+        }
         case NO_RESOURCE:
+        {
             add_status_line( 404, error_404_title );
             add_headers( strlen( error_404_form ) );
             if ( ! add_content( error_404_form ) ) {
                 return false;
             }
             break;
+        }
         case FORBIDDEN_REQUEST:  // 没有足够权限
+        {
             add_status_line( 403, error_403_title );
             add_headers(strlen( error_403_form));
             if ( ! add_content( error_403_form ) ) {
                 return false;
             }
             break;
+        }
         case FILE_REQUEST:  // 请求文件成功
+        {
             add_status_line(200, ok_200_title );
             // 如果请求资源存在
             if(m_file_stat.st_size != 0) {
@@ -677,6 +692,7 @@ bool http_conn::process_write(HTTP_CODE ret) {
                 add_headers(strlen(ok_string));
                 if(!add_content(ok_string))  return false;
             }
+        }
         default:
             return false;
     }

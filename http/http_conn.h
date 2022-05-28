@@ -17,6 +17,7 @@
 #include <cstdlib>
 #include "../locker/locker.h"
 #include "../pool/sql_connection_pool.h"
+#include "../log/log.h"
 
 class http_conn {
 public:
@@ -75,8 +76,8 @@ public:
     };
 
 public:
-    http_conn(){}
-    ~http_conn(){}
+    http_conn() = default;
+    ~http_conn() = default;
 
 public:
     void process(); // 处理客户端请求
@@ -152,6 +153,10 @@ private:
     bool add_content_length( size_t content_length );
     bool add_linger();
     bool add_blank_line();
+
+
+
+
 };
 
 #endif //WORKSPACE_HTTP_CONN_H
