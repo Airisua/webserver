@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20.6)
-project(workspace)
+project(webserver)
 
 set(CMAKE_CXX_STANDARD 14)
 
@@ -12,9 +12,9 @@ aux_source_directory(./locker CPP_LIST)
 aux_source_directory(./pool CPP_LIST)
 aux_source_directory(./timer CPP_LIST)
 
-add_executable(workspace ${CPP_LIST})
+add_executable(webserver ${CPP_LIST})
 
 #include_directories(/usr/local/include/mysql++)
 include_directories(/usr/include/mysql)
 link_directories(/usr/lib/x86_64-linux-gnu)
-target_link_libraries(workspace libmysqlclient.so)
+target_link_libraries(webserver libmysqlclient.so)
