@@ -1,20 +1,17 @@
 cmake_minimum_required(VERSION 3.20.6)
-project(webserver)
+project(workspace)
 
 set(CMAKE_CXX_STANDARD 14)
 
-aux_source_directory(. CPP_LIST)
-aux_source_directory(./buffer CPP_LIST)
-aux_source_directory(./epoll CPP_LIST)
-aux_source_directory(./http CPP_LIST)
-aux_source_directory(./log CPP_LIST)
-aux_source_directory(./locker CPP_LIST)
-aux_source_directory(./pool CPP_LIST)
-aux_source_directory(./timer CPP_LIST)
+# set(ex1 main.cpp http/http_conn.cpp timer/timer.h pool/sql_connection_pool.h pool/sql_connection_pool.cpp)
+# set(ex2 ${ex1} timer/timer_list.cpp timer/timer_list.h pool/thread_test.h epoll/server.h epoll/server.cpp)
+# set(ex3 ${ex2} main_test.cpp log/block_queue.h log/test.h log/log.h log/log.cpp buffer/buffer.h buffer/buffer.cpp)
+# set(ex4 ${ex3})
 
-add_executable(m_server ${CPP_LIST})
+add_executable(workspace ${ex4})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 #include_directories(/usr/local/include/mysql++)
 include_directories(/usr/include/mysql)
 link_directories(/usr/lib/x86_64-linux-gnu)
-target_link_libraries(webserver libmysqlclient.so)
+target_link_libraries(workspace libmysqlclient.so)
