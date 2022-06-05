@@ -12,7 +12,7 @@ aux_source_directory(./locker CPP_LIST)
 aux_source_directory(./pool CPP_LIST)
 aux_source_directory(./timer CPP_LIST)
 
-add_executable(webserver ${CPP_LIST})
+add_executable(m_server ${CPP_LIST})
 
 #include_directories(/usr/local/include/mysql++)
 include_directories(/usr/include/mysql)
