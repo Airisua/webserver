@@ -13,7 +13,6 @@ aux_source_directory(./pool CPP_LIST)
 aux_source_directory(./timer CPP_LIST)
 
 add_executable(workspace ${CPP_LIST})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 
 #include_directories(/usr/local/include/mysql++)
 include_directories(/usr/include/mysql)
